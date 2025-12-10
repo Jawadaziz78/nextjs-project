@@ -9,7 +9,7 @@ pipeline {
         DEPLOY_HOST = '172.31.77.148'
         DEPLOY_USER = 'ubuntu'
         
-        // CHANGE THIS: 'laravel', 'vue', or 'nextjs'
+
         PROJECT_TYPE = 'nextjs'
     }
 
@@ -19,10 +19,13 @@ pipeline {
                 sshagent(['deploy-server-key']) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "
+                            # 1. FORCE LOAD NVM (Node 20) for Vue/Next.js compatibility
+                            export NVM_DIR="\\$HOME/.nvm"
+                            [ -s "\\$NVM_DIR/nvm.sh" ] && . "\\$NVM_DIR/nvm.sh"
+                            nvm use 20
+
                             set -e
                             
-                            echo 'DEPLOYING: ${PROJECT_TYPE}'
-
                             case \\"${PROJECT_TYPE}\\" in
                                 laravel)
                                     cd /home/ubuntu/projects/laravel
@@ -30,7 +33,6 @@ pipeline {
                                     git fetch origin
                                     git reset --hard origin/${BRANCH_NAME:-main}
                                     
-                                    echo '⚙️ Running Laravel Build...'
                                     php artisan optimize:clear
                                     php artisan config:cache
                                     php artisan route:cache
@@ -43,7 +45,7 @@ pipeline {
                                     git fetch origin
                                     git reset --hard origin/${BRANCH_NAME:-main}
                                     
-                                    echo '⚙️ Running Vue Build...'
+                                    # NO INSTALL - DIRECT BUILD
                                     npm run build
                                     ;;
                                 
@@ -53,8 +55,9 @@ pipeline {
                                     git fetch origin
                                     git reset --hard origin/${BRANCH_NAME:-main}
                                     
-                                    echo '⚙️ Running Next.js Build...'
                                     cd web
+                                    
+                                    # NO INSTALL - DIRECT BUILD
                                     npm run build
                                     ;;
                                 
