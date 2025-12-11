@@ -9,7 +9,7 @@ pipeline {
         DEPLOY_HOST     = '172.31.77.148'
         DEPLOY_USER     = 'ubuntu'
         BUILD_DIR       = '/home/ubuntu/build-staging'
-        PROJECT_TYPE    = 'laravel' 
+        PROJECT_TYPE    = 'nextjs' 
         
         // SLACK CONFIGURATION (Commented Out)
         // SLACK_PART_A  = 'https://hooks.slack.com/services/'
