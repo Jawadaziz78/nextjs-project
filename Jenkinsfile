@@ -8,53 +8,43 @@ pipeline {
     environment {
         DEPLOY_HOST     = '172.31.77.148'
         DEPLOY_USER     = 'ubuntu'
-        // FIX: Renamed to BASE dir. We will create specific subfolders for each project automatically.
-        BUILD_BASE_DIR  = '/home/ubuntu/build-staging'
         
+        // NOTE: BUILD_DIR is now removed from here. 
+        // It is handled automatically in the 'Build' stage based on PROJECT_TYPE.
+
         // CHANGE THIS variable for each project (laravel, vue, or nextjs)
         PROJECT_TYPE    = 'nextjs' 
         
-        // SLACK CONFIGURATION (Commented Out)
-        // SLACK_PART_A  = 'https://hooks.slack.com/services/'
-        // SLACK_PART_B  = 'T01KC5SLA49/B0A284K2S6T/'
-        // SLACK_PART_C  = 'JRJsWNSYnh2tujdMo4ph0Tgp'
+        // SLACK CONFIGURATION
+        SLACK_PART_A  = 'https://hooks.slack.com/services/'
+        SLACK_PART_B  = 'T01KC5SLA49/B0A284K2S6T/'
+        SLACK_PART_C  = 'JRJsWNSYnh2tujdMo4ph0Tgp'
     }
 
     stages {
         
         stage('Build') {
             steps {
+                // FIX: Dynamically set the Build Directory based on Project Type
+                script {
+                     def buildPaths = [
+                        'laravel': '/home/ubuntu/build-staging',
+                        'vue':     '/home/ubuntu/build-staging-vue',
+                        'nextjs':  '/home/ubuntu/build-staging-nextjs'
+                     ]
+                     env.BUILD_DIR = buildPaths[env.PROJECT_TYPE]
+                }
+
                 sshagent(['deploy-server-key']) {
                     sh '''
                     ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "
                         set -e
+
+                        # We use the dynamic BUILD_DIR determined above
+                        cd ${BUILD_DIR}
                         
-                        # FIX: Create a unique directory for this project type
-                        # This prevents Next.js trying to build Laravel files (and vice versa)
-                        PROJECT_BUILD_DIR=\\"${BUILD_BASE_DIR}/${PROJECT_TYPE}\\"
-                        mkdir -p \\$PROJECT_BUILD_DIR
-                        cd \\$PROJECT_BUILD_DIR
-                        
-                        # FIX: Initialize Repo if it doesn't exist or if URL is wrong
-                        if [ ! -d .git ]; then
-                            echo 'First time run: Cloning repository...'
-                            # Jenkins automatically provides the GIT_URL variable
-                            git clone ${GIT_URL} .
-                        else
-                             # Safety Check: If the folder has the wrong repo, wipe it and re-clone
-                             # This fixes the 'divergent branches' and 'wrong project files' errors
-                             CURRENT_REMOTE=\\$(git config --get remote.origin.url)
-                             if [ \\"\\$CURRENT_REMOTE\\" != \\"${GIT_URL}\\" ]; then
-                                 echo '⚠️ Remote mismatch detected! Cleaning and re-cloning...'
-                                 cd ..
-                                 rm -rf \\$PROJECT_BUILD_DIR
-                                 mkdir -p \\$PROJECT_BUILD_DIR
-                                 cd \\$PROJECT_BUILD_DIR
-                                 git clone ${GIT_URL} .
-                             fi
-                        fi
-                        
-                        # Normal Git Operations
+                        # FIX: Replaced 'git pull' with fetch + reset --hard
+                        # This prevents the 'divergent branches' error.
                         git fetch origin ${BRANCH_NAME:-main}
                         git reset --hard origin/${BRANCH_NAME:-main}
                         git checkout ${BRANCH_NAME:-main} 
@@ -87,6 +77,54 @@ pipeline {
             }
         }
 
+        // Stage 2: Test (Execute unit tests based on project type)
+        // stage('Test') {
+        //     steps {
+        //         sshagent(['deploy-server-key']) {
+        //             sh '''
+        //             ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "
+        //                 set -e
+        //                 cd ${BUILD_DIR}
+        //                 
+        //                 echo '-----------------------------------'
+        //                 echo '🧪 STAGE 2: TEST EXECUTION'
+        //                 echo '-----------------------------------'
+        //                 
+        //                 # Load Node 20
+        //                 export NVM_DIR=\\"\\$HOME/.nvm\\" 
+        //                 [ -s \\"\\$NVM_DIR/nvm.sh\\" ] && . \\"\\$NVM_DIR/nvm.sh\\" 
+        //                 nvm use 20
+        //
+        //                 # Execute tests based on PROJECT_TYPE
+        //                 case \\"${PROJECT_TYPE}\\" in
+        //                     laravel)
+        //                         # Setup in-memory SQLite for testing
+        //                         export DB_CONNECTION=sqlite
+        //                         export DB_DATABASE=:memory:
+        //                         
+        //                         php ./vendor/bin/phpunit --testsuite Unit
+        //                         ;;
+        //                     
+        //                     vue)
+        //                         npm run test:unit
+        //                         ;;
+        //                     
+        //                     nextjs)
+        //                         cd web
+        //                         npm run test
+        //                         ;;
+        //                     *)
+        //                         echo '⚠️ Skipping tests for project type: ${PROJECT_TYPE}'
+        //                         ;;
+        //                 esac
+        //
+        //                 echo '✅ Tests Completed Successfully'
+        //             "
+        //             '''
+        //         }
+        //     }
+        // }
+
         stage('Deploy') {
             steps {
                 // FIX: Define LIVE_DIR in Groovy to prevent 'mkdir missing operand' error
@@ -101,24 +139,24 @@ pipeline {
 
                 sshagent(['deploy-server-key']) {
                     sh '''
+                    # We use ${LIVE_DIR} directly now because Jenkins injects it safely
                     ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "
                         set -e
                         
-                        # FIX: Use the specific build folder for this project
-                        PROJECT_BUILD_DIR=\\"${BUILD_BASE_DIR}/${PROJECT_TYPE}\\"
 
                         # RSYNC TO LIVE 
+                        # We exclude cache files so we don't copy the 'build' config to 'live'
                         mkdir -p ${LIVE_DIR}
-                        # Sync from the project-specific folder
-                        rsync -av --delete --exclude='.env' --exclude='.git' --exclude='bootstrap/cache/*.php' --exclude='storage' --exclude='public/storage' --exclude='node_modules' --exclude='vendor' --exclude='public/dist' \\${PROJECT_BUILD_DIR}/ ${LIVE_DIR}/
+                        rsync -av --delete --exclude='.env' --exclude='.git' --exclude='bootstrap/cache/*.php' --exclude='storage' --exclude='public/storage' --exclude='node_modules' --exclude='vendor' --exclude='public/dist' ${BUILD_DIR}/ ${LIVE_DIR}/
 
                         # RUN POST-DEPLOY COMMANDS
                         cd ${LIVE_DIR}
 
                         # Load Node 20
                         # FIX: Hardcoded path based on your diagnostic result
+                        # This ensures the script loads successfully every time
                         export NVM_DIR='/home/ubuntu/.nvm'
-                        [ -s \\"/home/ubuntu/.nvm/nvm.sh\\" ] && . \\"/home/ubuntu/.nvm/nvm.sh\\"
+                        [ -s \"/home/ubuntu/.nvm/nvm.sh\" ] && . \"/home/ubuntu/.nvm/nvm.sh\"
                         nvm use 20
 
                         # Run project-specific post-deploy tasks
@@ -166,12 +204,12 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline succeeded. (Slack notification is commented out)"
-            // sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\":\"Jawad Deployment SUCCESS: ${env.JOB_NAME} (Build #${env.BUILD_NUMBER})\"}' ${SLACK_PART_A}${SLACK_PART_B}${SLACK_PART_C}"
+            echo "Pipeline succeeded. Sending Slack notification..."
+            sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\":\"Jawad Deployment SUCCESS: ${env.JOB_NAME} (Build #${env.BUILD_NUMBER})\"}' ${SLACK_PART_A}${SLACK_PART_B}${SLACK_PART_C}"
         }
         failure {
-            echo "Pipeline failed. (Slack notification is commented out)"
-            // sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\":\"Jawad Deployment FAILED: ${env.JOB_NAME} (Build #${env.BUILD_NUMBER})\"}' ${SLACK_PART_A}${SLACK_PART_B}${SLACK_PART_C}"
+            echo "Pipeline failed. Sending Slack notification..."
+            sh "curl -X POST -H 'Content-type: application/json' --data '{\"text\":\"Jawad Deployment FAILED: ${env.JOB_NAME} (Build #${env.BUILD_NUMBER})\"}' ${SLACK_PART_A}${SLACK_PART_B}${SLACK_PART_C}"
         }
     }
 }
