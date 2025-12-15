@@ -1,11 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  basePath: '/nextjs',
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH,
+  output: 'export',
+  distDir: 'out',
   images: {
     unoptimized: true,
   },
-  skipTrailingSlashRedirect: true,
-};
-
-module.exports = nextConfig;
+}
+module.exports = nextConfig
