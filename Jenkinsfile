@@ -12,17 +12,20 @@ pipeline {
     stages {
         stage('Build') {
             steps {
+                script {
+                    if (env.PROJECT_TYPE == 'vue') {
+                        env.LIVE_DIR = '/var/www/html/development/vue-project'
+                    } else if (env.PROJECT_TYPE == 'nextjs') {
+                        env.LIVE_DIR = '/var/www/html/development/nextjs-project/web'
+                    }
+                }
+
                 sshagent(['deploy-server-key']) {
                     sh '''
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "
                             set -e
+                            cd ${LIVE_DIR}
                             
-                            case \"${PROJECT_TYPE}\" in
-                                vue)    LIVE_DIR='/var/www/html/development/vue-project' ;;
-                                nextjs) LIVE_DIR='/var/www/html/development/nextjs-project' ;;
-                            esac
-                            
-                            cd \${LIVE_DIR}
                             git fetch origin
                             git reset --hard origin/${BRANCH_NAME}
 
@@ -30,12 +33,11 @@ pipeline {
                             [ -s \\"\\$NVM_DIR/nvm.sh\\" ] && . \\"\\$NVM_DIR/nvm.sh\\"
                             nvm use 20
 
-                            case \"${PROJECT_TYPE}\" in
+                            case \\"${PROJECT_TYPE}\\" in
                                 vue)
                                     npm run build
                                     ;;
                                 nextjs)
-                                    cd web
                                     npx env-cmd -f .env.development next build
                                     ;;
                             esac
