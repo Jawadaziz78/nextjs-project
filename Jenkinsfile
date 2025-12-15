@@ -3,24 +3,24 @@ pipeline {
     triggers { githubPush() }
     
     environment {
-        PROJECT_TYPE  = 'nextjs'
+        PROJECT_TYPE  = 'nextjs' 
         DEPLOY_HOST   = '172.31.77.148'
         DEPLOY_USER   = 'ubuntu'
-        BRANCH_NAME   = 'development'
-        
-        // Load the Slack URL securely
-        SLACK_WEBHOOK = credentials('slack-webhook-url')
+       // SLACK_WEBHOOK = credentials('slack-webhook-url')
     }
 
     stages {
-        stage('Build & Deploy') {
+        stage('Deploy') {
             steps {
                 script {
                     if (env.PROJECT_TYPE == 'vue') {
-                        env.LIVE_DIR = '/var/www/html/development/vue-project'
-                    } else if (env.PROJECT_TYPE == 'nextjs') {
-                        env.LIVE_DIR = '/var/www/html/development/nextjs-project/web'
+                        env.LIVE_DIR = "/var/www/html/${env.BRANCH_NAME}/vue-project"
+                    } else {
+                        env.LIVE_DIR = "/var/www/html/${env.BRANCH_NAME}/nextjs-project/web"
                     }
+
+                    // Dynamically sets name to 'nextjs-development' to match your server
+                    env.PM2_APP = "${env.PROJECT_TYPE}-${env.BRANCH_NAME}"
                 }
 
                 sshagent(['deploy-server-key']) {
@@ -34,7 +34,12 @@ pipeline {
                             export NVM_DIR=\\"\\$HOME/.nvm\\"
                             [ -s \\"\\$NVM_DIR/nvm.sh\\" ] && . \\"\\$NVM_DIR/nvm.sh\\"
                             
-                            npm run build
+                            if [ \\"${PROJECT_TYPE}\\\" = \\"vue\\" ]; then
+                                npm run build
+                            elif [ \\"${PROJECT_TYPE}\\\" = \\"nextjs\\" ]; then
+                                npm run build
+                                pm2 restart ${PM2_APP}
+                            fi
                         "
                     '''
                 }
@@ -42,26 +47,30 @@ pipeline {
         }
     }
 
-    // This block handles the notifications based on the result of the stages above
     post {
         success {
             script {
-                sh """
-                    curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"✅ *Deployment Successful for ${PROJECT_TYPE}*\\nJob: ${JOB_NAME}\\nBuild: #${BUILD_NUMBER}\\nBranch: ${BRANCH_NAME}"}' \
-                    ${SLACK_WEBHOOK}
-                """
+                // FIXED: Added 'echo' so this block is not empty
+                echo "✅ Deployment Successful (Slack notification disabled)"
+                
+                // sh """
+                //     curl -X POST -H 'Content-type: application/json' \
+                //     --data '{"text":"✅ *Deployment Successful for ${PROJECT_TYPE}*\\nBranch: ${env.BRANCH_NAME}"}' \
+                //     ${SLACK_WEBHOOK}
+                // """
             }
         }
         failure {
             script {
-                sh """
-                    curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"❌ *Deployment Failed for ${PROJECT_TYPE}*\\nJob: ${JOB_NAME}\\nBuild: #${BUILD_NUMBER}\\nPlease check console output."}' \
-                    ${SLACK_WEBHOOK}
-                """
+                // FIXED: Added 'echo' so this block is not empty
+                echo "❌ Deployment Failed (Slack notification disabled)"
+
+                // sh """
+                //     curl -X POST -H 'Content-type: application/json' \
+                //     --data '{"text":"❌ *Deployment Failed for ${PROJECT_TYPE}*\\nBranch: ${env.BRANCH_NAME}"}' \
+                //     ${SLACK_WEBHOOK}
+                // """
             }
         }
     }
 }
-
