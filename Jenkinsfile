@@ -4,7 +4,7 @@ pipeline {
     triggers { githubPush() }
     
     environment {
-        PROJECT_TYPE = 'vue'
+        PROJECT_TYPE = 'nextjs'
         DEPLOY_HOST  = '172.31.77.148'
         DEPLOY_USER  = 'ubuntu'
         BRANCH_NAME  = 'development'
