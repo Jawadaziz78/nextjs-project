@@ -6,7 +6,7 @@ pipeline {
         PROJECT_TYPE  = 'nextjs' 
         DEPLOY_HOST   = '172.31.77.148'
         DEPLOY_USER   = 'ubuntu'
-        SLACK_WEBHOOK = credentials('slack-webhook-url')
+       // SLACK_WEBHOOK = credentials('slack-webhook-url')
     }
 
     stages {
@@ -50,7 +50,9 @@ pipeline {
     post {
         success {
             script {
-                // Slack Notification Commented Out
+                // FIXED: Added 'echo' so this block is not empty
+                echo "✅ Deployment Successful (Slack notification disabled)"
+                
                 // sh """
                 //     curl -X POST -H 'Content-type: application/json' \
                 //     --data '{"text":"✅ *Deployment Successful for ${PROJECT_TYPE}*\\nBranch: ${env.BRANCH_NAME}"}' \
@@ -60,7 +62,9 @@ pipeline {
         }
         failure {
             script {
-                // Slack Notification Commented Out
+                // FIXED: Added 'echo' so this block is not empty
+                echo "❌ Deployment Failed (Slack notification disabled)"
+
                 // sh """
                 //     curl -X POST -H 'Content-type: application/json' \
                 //     --data '{"text":"❌ *Deployment Failed for ${PROJECT_TYPE}*\\nBranch: ${env.BRANCH_NAME}"}' \
