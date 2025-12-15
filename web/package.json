@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "env-cmd -f .env.development next build",
     "start": "node_modules/next/dist/bin/next start",
     "serve": "next start -p 3001"
   },
