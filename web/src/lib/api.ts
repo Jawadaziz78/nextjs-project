@@ -1,6 +1,8 @@
 import fs from "fs";
 import { join } from "path";
 import matter from "gray-matter";
+// Import the Post type interface so we can cast strictly
+import { Post } from "@/interfaces/post"; 
 
 const postsDirectory = join(process.cwd(), "_posts");
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -26,7 +28,6 @@ export function getPostBySlug(slug: string, fields: string[] = []) {
   const fixedContent = content.replace(/"\/assets\//g, `"${basePath}/assets/`);
   // --- AUTOMATIC PATH FIX END ---
 
-  // CORRECTION: Allow 'any' value so Objects (like Author) don't break the build
   type Items = {
     [key: string]: any; 
   };
@@ -46,7 +47,8 @@ export function getPostBySlug(slug: string, fields: string[] = []) {
     }
   });
 
-  return items;
+  // CRITICAL FIX: Cast the result to 'Post' so page.tsx accepts it
+  return items as unknown as Post;
 }
 
 export function getAllPosts(fields: string[] = []) {
