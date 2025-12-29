@@ -21,43 +21,36 @@ export function getPostBySlug(slug: string, fields: string[] = []) {
   const fileContents = fs.readFileSync(fullPath, "utf8");
   let { data, content } = matter(fileContents);
 
+  // --- SAFETY LAYER: Fix Data Object immediately ---
   if (!data) data = {};
-  if (!data.title) data.title = "Untitled Post";
-  if (!data.date) data.date = new Date().toISOString();
-  
-  // FIX MISSING AUTHOR (Prevents 'reading name' crash)
   if (!data.author) {
-    data.author = { 
-      name: 'Guest Author', 
-      picture: "/assets/blog/authors/tim.jpeg" 
-    };
-  }
-  
-  if (!data.coverImage) data.coverImage = "/assets/blog/preview/cover.jpg";
-  if (!data.ogImage) data.ogImage = { url: "/assets/blog/preview/cover.jpg" };
-
-  // PATH FIXES
-  if (data.coverImage.startsWith('/assets/')) {
-    data.coverImage = `${basePath}${data.coverImage}`;
-  }
-  if (data.author.picture && data.author.picture.startsWith('/assets/')) {
-     data.author.picture = `${basePath}${data.author.picture}`;
-  }
-  if (data.ogImage && data.ogImage.url && data.ogImage.url.startsWith('/assets/')) {
-     data.ogImage.url = `${basePath}${data.ogImage.url}`;
+    // This prevents the 'reading name' crash by ensuring author always exists
+    data.author = { name: 'Guest', picture: '/assets/blog/authors/tim.jpeg' };
   }
 
+  // --- PATH FIXES ---
+  const fixedCoverImage = data.coverImage?.startsWith('/assets/') ? `${basePath}${data.coverImage}` : data.coverImage;
+  const fixedAuthorPicture = data.author.picture?.startsWith('/assets/') ? `${basePath}${data.author.picture}` : data.author.picture;
   const fixedContent = content.replace(/"\/assets\//g, `"${basePath}/assets/`);
 
-  const items: { [key: string]: any } = {};
+  const items: any = {};
 
   fields.forEach((field) => {
     if (field === "slug") items[field] = realSlug;
     if (field === "content") items[field] = fixedContent;
-    if (typeof data[field] !== "undefined") items[field] = data[field];
+    if (field === "coverImage") items[field] = fixedCoverImage;
+    if (field === "author") {
+        items[field] = { ...data.author, picture: fixedAuthorPicture };
+    }
+    if (typeof data[field] !== "undefined" && !items[field]) {
+      items[field] = data[field];
+    }
   });
-  
-  if (fields.includes('author') && !items['author']) items['author'] = data.author;
+
+  // Final check to ensure author is NEVER undefined
+  if (fields.includes('author') && !items.author) {
+      items.author = { name: 'Guest', picture: `${basePath}/assets/blog/authors/tim.jpeg` };
+  }
 
   return items as unknown as Post;
 }
