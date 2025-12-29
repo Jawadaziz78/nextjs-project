@@ -1,8 +1,7 @@
 import fs from "fs";
 import { join } from "path";
 import matter from "gray-matter";
-// Import the Post type interface so we can cast strictly
-import { Post } from "@/interfaces/post"; 
+import { Post } from "@/interfaces/post";
 
 const postsDirectory = join(process.cwd(), "_posts");
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -47,7 +46,15 @@ export function getPostBySlug(slug: string, fields: string[] = []) {
     }
   });
 
-  // CRITICAL FIX: Cast the result to 'Post' so page.tsx accepts it
+  // --- SAFETY NET FOR MISSING AUTHOR ---
+  // If the page asks for an author but the markdown didn't have one, provide a default.
+  if (fields.includes('author') && !items['author']) {
+      items['author'] = { 
+        name: 'Guest Author', 
+        picture: `${basePath}/assets/blog/authors/tim.jpeg` 
+      };
+  }
+
   return items as unknown as Post;
 }
 
