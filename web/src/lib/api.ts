@@ -13,39 +13,39 @@ export function getPostSlugs() {
 export function getPostBySlug(slug: string, fields: string[] = []) {
   const realSlug = slug.replace(/\.md$/, "");
   const fullPath = join(postsDirectory, `${realSlug}.md`);
-  const fileContents = fs.readFileSync(fullPath, "utf8");
   
-  // Use 'let' so we can modify data defaults
+  // Safety: If file is missing, return empty object to prevent crash
+  if (!fs.existsSync(fullPath)) {
+    return {} as Post;
+  }
+
+  const fileContents = fs.readFileSync(fullPath, "utf8");
   let { data, content } = matter(fileContents);
 
-  // --- 1. BULLETPROOF SAFETY NET (Sanitizes Broken YAML) ---
-  // Fix Missing Title
-  if (!data.title) { 
-    data.title = "Untitled Post"; 
-  }
-  // Fix Missing Date (Prevents 'split' crash)
-  if (!data.date) { 
-    data.date = new Date().toISOString(); 
-  }
-  // Fix Missing Cover Image
-  if (!data.coverImage) { 
-    data.coverImage = "/assets/blog/preview/cover.jpg"; 
-  }
-  // Fix Missing Author
+  // --- SAFETY NET: Defaults for Missing Data ---
+  if (!data) data = {};
+  if (!data.title) data.title = "Untitled Post";
+  if (!data.date) data.date = new Date().toISOString();
+  
+  // Fix Missing Author (Prevents 'reading name' crash)
   if (!data.author) {
     data.author = { 
       name: 'Guest Author', 
       picture: "/assets/blog/authors/tim.jpeg" 
     };
   }
+  
+  // Fix Missing Cover Image (Prevents 'split' crash)
+  if (!data.coverImage) { 
+    data.coverImage = "/assets/blog/preview/cover.jpg"; 
+  }
+  
   // Fix Missing OG Image
   if (!data.ogImage) {
     data.ogImage = { url: "/assets/blog/preview/cover.jpg" };
   }
-  // --- SAFETY NET END ---
-
-  // --- 2. AUTOMATIC PATH FIX START ---
-  // Now that we ensured data exists, we can safely fix paths
+  
+  // --- PATH FIXES ---
   if (data.coverImage.startsWith('/assets/')) {
     data.coverImage = `${basePath}${data.coverImage}`;
   }
@@ -57,25 +57,14 @@ export function getPostBySlug(slug: string, fields: string[] = []) {
   }
 
   const fixedContent = content.replace(/"\/assets\//g, `"${basePath}/assets/`);
-  // --- AUTOMATIC PATH FIX END ---
 
-  type Items = {
-    [key: string]: any; 
-  };
-
+  type Items = { [key: string]: any };
   const items: Items = {};
 
   fields.forEach((field) => {
-    if (field === "slug") {
-      items[field] = realSlug;
-    }
-    if (field === "content") {
-      items[field] = fixedContent;
-    }
-
-    if (typeof data[field] !== "undefined") {
-      items[field] = data[field];
-    }
+    if (field === "slug") items[field] = realSlug;
+    if (field === "content") items[field] = fixedContent;
+    if (typeof data[field] !== "undefined") items[field] = data[field];
   });
 
   return items as unknown as Post;
