@@ -7,6 +7,13 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+/**
+ * DYNAMIC PATH RESOLUTION:
+ * This pulls the subpath (e.g., /nextjs/development) from your environment 
+ * variables so the code works on Dev, Test, or Stage without changes.
+ */
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 export const metadata: Metadata = {
   title: `Next.js Blog Example with ${CMS_NAME}`,
   description: `A statically generated blog example using Next.js and ${CMS_NAME}.`,
@@ -26,34 +33,34 @@ export default function RootLayout({
         <link
           rel="apple-touch-icon"
           sizes="180x180"
-          href="/favicon/apple-touch-icon.png"
+          href={`${basePath}/favicon/apple-touch-icon.png`}
         />
         <link
           rel="icon"
           type="image/png"
           sizes="32x32"
-          href="/favicon/favicon-32x32.png"
+          href={`${basePath}/favicon/favicon-32x32.png`}
         />
         <link
           rel="icon"
           type="image/png"
           sizes="16x16"
-          href="/favicon/favicon-16x16.png"
+          href={`${basePath}/favicon/favicon-16x16.png`}
         />
-        <link rel="manifest" href="/favicon/site.webmanifest" />
+        <link rel="manifest" href={`${basePath}/favicon/site.webmanifest`} />
         <link
           rel="mask-icon"
-          href="/favicon/safari-pinned-tab.svg"
+          href={`${basePath}/favicon/safari-pinned-tab.svg`}
           color="#000000"
         />
-        <link rel="shortcut icon" href="/favicon/favicon.ico" />
+        <link rel="shortcut icon" href={`${basePath}/favicon/favicon.ico`} />
         <meta name="msapplication-TileColor" content="#000000" />
         <meta
           name="msapplication-config"
-          content="/favicon/browserconfig.xml"
+          content={`${basePath}/favicon/browserconfig.xml`}
         />
         <meta name="theme-color" content="#000" />
-        <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
+        <link rel="alternate" type="application/rss+xml" href={`${basePath}/feed.xml`} />
       </head>
       <body className={inter.className}>
         <div className="min-h-screen">{children}</div>
