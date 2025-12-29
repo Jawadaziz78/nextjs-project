@@ -7,7 +7,11 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Define the base path from environment variable
+/**
+ * DYNAMIC PATH RESOLUTION:
+ * This pulls the subpath (e.g., /nextjs/development) from your environment 
+ * variables so the code works on Dev, Test, or Stage without changes.
+ */
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 export const metadata: Metadata = {
