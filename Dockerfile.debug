@@ -1,0 +1,19 @@
+# Stage 1: Build Only
+FROM node:20-alpine
+WORKDIR /app
+ARG NEXT_PUBLIC_BASE_PATH
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
+
+# Install
+COPY package.json package-lock.json ./
+COPY web/package.json ./web/
+RUN npm install
+
+# Build
+COPY . .
+WORKDIR /app/web
+RUN npm run build
+
+# CMD: Just list the standalone directory structure so we can see the path
+# FIXED: The number "3" is now quoted
+CMD ["find", "/app/web/.next/standalone", "-maxdepth", "3", "-not", "-path", "*/node_modules*"]
