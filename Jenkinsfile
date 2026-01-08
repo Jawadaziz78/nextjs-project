@@ -6,10 +6,12 @@ pipeline {
     triggers { githubPush() }
     
     environment {
-        PROJECT_TYPE  = 'nextjs' 
+        PROJECT_TYPE  = 'nextjs' // Change to 'vue', 'nextjs', or 'laravel' as needed
         DEPLOY_HOST   = '44.220.124.99'
         DEPLOY_USER   = 'ubuntu'
         GIT_CREDS     = credentials('dev-jawad') 
+        
+        // --- Slack Webhook (COMMENTED OUT) ---
         SLACK_WEBHOOK = credentials('slack-webhook-url')
     }
     
@@ -64,26 +66,14 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "
                             set -e
                             
-                            # 1. Navigate to the root project folder
-                            cd /var/www/html/${BRANCH_NAME}/${PROJECT_TYPE}-project
+                            echo 'Navigate to project folder...'
+                            cd /var/www/html/${env.BRANCH_NAME}/${PROJECT_TYPE}-project
+                            git pull origin ${env.BRANCH_NAME}
+                            cd /var/www/html
+                            docker compose up -d --build ${PROJECT_TYPE}-app
+                            docker image prune -f
+                            echo '✅ Deployment Successfully Completed for ${env.BRANCH_NAME}.'
                             
-                            echo 'Pulling latest code...'
-                            git pull origin ${BRANCH_NAME}
-                            
-                            echo 'Building project...'
-                            case \\"${PROJECT_TYPE}\\" in
-                                vue) 
-                                    VITE_BASE_URL=\\"/vue/${BRANCH_NAME}/\\" pnpm run build ;;
-                                nextjs) 
-                                    # Navigation to web folder is required to find the 'next' command
-                                    cd web
-                                    NEXT_PUBLIC_BASE_PATH=\\"/nextjs/${BRANCH_NAME}\\" npm run build
-                                    pm2 restart ${PROJECT_TYPE}-${BRANCH_NAME} ;;
-                                laravel) 
-                                    sudo php artisan optimize  ;;
-                            esac
-                            
-                            echo '✅ Deployment Successfully Completed.'
                         "
                     """
                 }
@@ -109,10 +99,11 @@ pipeline {
 
                 echo "Deployment Result: ${resultMsg}"
                 
+                // --- Slack Notification (UNCOMMENTED) ---
                 sh """
                     curl -X POST -H 'Content-type: application/json' \
                     --data '{"text":"*Project:* ${PROJECT_TYPE}\\n*Branch:* ${env.BRANCH_NAME}\\n*Result:* ${resultMsg}\\n<${env.BUILD_URL}|View Logs>"}' \
-                    '${SLACK_WEBHOOK}'
+                    ${SLACK_WEBHOOK}
                 """
             }
         }
